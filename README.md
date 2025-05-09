@@ -17,7 +17,7 @@ Abaixo os parâmetros utilizados no arquivo `Essential_Oils_Batch.xml`:
 ## 📂 Estrutura do repositório
 
 ...
-
+ 
 
 Sugestão de estrutura
 
