@@ -96,7 +96,8 @@ def process_sample_kovats(df_quant, alkane_table, rt_column, ref_table=None, tol
 
 def plot_chromatogram_auto_multitrace(df_chrom, sample_prefix, output_dir="images"):
     """
-    Plota e salva o cromatograma com múltiplos traços (um por par de colunas).
+    Plota e salva o cromatograma com múltiplos traços (um por par de colunas),
+    salvando em HTML interativo e PNG de alta resolução.
     """
     if isinstance(df_chrom.columns, pd.MultiIndex):
         df_chrom.columns = [' | '.join([str(level).strip() for level in col if str(level) != 'nan']) for col in df_chrom.columns]
@@ -114,14 +115,31 @@ def plot_chromatogram_auto_multitrace(df_chrom, sample_prefix, output_dir="image
         y_col = df_chrom.columns[i+1]
         if df_chrom[x_col].isnull().all() or df_chrom[y_col].isnull().all():
             continue
-        fig.add_trace(go.Scatter(x=df_chrom[x_col], y=df_chrom[y_col], mode='lines', name=x_col.split(':')[0]))
+        fig.add_trace(go.Scatter(
+            x=df_chrom[x_col],
+            y=df_chrom[y_col],
+            mode='lines',
+            name=x_col.split(':')[0]
+        ))
 
-    fig.update_layout(title=f"Cromatograma: {sample_prefix}", xaxis_title="Retention Time (min)", yaxis_title="Base Peak Intensity")
+    fig.update_layout(
+        title=f"Cromatograma: {sample_prefix}",
+        xaxis_title="Retention Time (min)",
+        yaxis_title="Base Peak Intensity"
+    )
 
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"{sample_prefix}_chromatogram.html")
-    fig.write_html(output_file)
-    print(f"✅ Gráfico salvo em: {output_file}")
+
+    # ✅ Salva HTML
+    output_html = os.path.join(output_dir, f"{sample_prefix}_chromatogram.html")
+    fig.write_html(output_html)
+    print(f"✅ Gráfico salvo como HTML em: {output_html}")
+
+    # ✅ Salva PNG de alta resolução
+    #output_png = os.path.join(output_dir, f"{sample_prefix}_chromatogram.png")
+    #fig.write_image(output_png.replace(".png", ".svg"))#, scale=1.5, width=600, height=400)  # ajuste a resolução aqui
+    #print(f"✅ Gráfico salvo como PNG em alta resolução em: {output_png}")
+
     return fig
 
 # =========================
@@ -240,3 +258,146 @@ def read_first_lines(file_path, num_lines=20):
     """
     with open(file_path, 'r', encoding='utf-8') as f:
         return [next(f) for _ in range(num_lines)]
+
+
+from docxtpl import DocxTemplate
+from docxtpl import InlineImage
+from docx.shared import Cm
+import pandas as pd
+import os
+
+def gerar_relatorio_docx(tabela_resultados, amostra_nome, output_file, template_path="Relatorio_Analitico_Template.docx"):
+    """
+    Gera um relatório .docx baseado em um template Word com os dados da amostra.
+    
+    Parâmetros:
+    - tabela_resultados: DataFrame com os resultados da amostra
+    - amostra_nome: string com o nome da amostra
+    - output_file: caminho completo do arquivo .docx de saída
+    - template_path: caminho do arquivo template .docx (padrão: 'Relatorio_Analitico_Template.docx' na mesma pasta)
+    """
+    # Verifica se o template existe
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"❌ Template não encontrado em: {template_path}")
+
+    # Carrega o template
+    doc = DocxTemplate(template_path)
+
+    # Converte DataFrame para lista de listas (para usar no template)
+    tabela_lista = [tabela_resultados.columns.tolist()] + tabela_resultados.values.tolist()
+
+    # Define contexto de substituição
+    context = {
+        'amostra': amostra_nome,
+        'tabela': tabela_lista,
+        'data': pd.Timestamp.today().strftime('%d/%m/%Y')}
+
+    # Renderiza o template com o contexto
+    doc.render(context)
+
+    # Salva o arquivo de saída
+    doc.save(output_file)
+    print(f"✅ Relatório gerado e salvo: {output_file}")
+    
+from docxtpl import DocxTemplate, InlineImage
+from docx.shared import Cm
+import os
+import pandas as pd
+
+def processar_amostra(prefix, dfs_quant_processed, results_by_sample, template_path="../Relatorio_Analitico_Template.docx"):
+    if prefix == "GT_PadraoHidroc_13-06-2024":
+        print(f"⚠️ Ignorando amostra padrão {prefix}")
+        return
+
+    print(f"\n🔍 Processando fusão e relatório para {prefix}...")
+    
+    df_quant = dfs_quant_processed[prefix].copy()
+    df_matches = results_by_sample[prefix].copy()
+
+    if 'FEATURE_ID' not in df_quant.columns:
+        if 'row ID' in df_quant.columns:
+            df_quant['FEATURE_ID'] = df_quant['row ID'].astype(str)
+        else:
+            raise ValueError(f"❌ Nenhuma coluna 'row ID' ou 'FEATURE_ID' em df_quant para {prefix}")
+    else:
+        df_quant['FEATURE_ID'] = df_quant['FEATURE_ID'].astype(str).str.replace('FEATURE_ID=', '', regex=False)
+
+    df_quant['row ID'] = df_quant['FEATURE_ID'].astype(int)
+    df_matches['row ID'] = df_matches['FEATURE_ID'].astype(int)
+
+    # ✅ Garante que as colunas existam
+    for col in ['Kovats Index', 'Kovats Identified Compound']:
+        if col not in df_quant.columns:
+            df_quant[col] = None
+
+    df_matches_renamed = df_matches.rename(columns={
+        'Best Match Name': 'Spectral Match Name',
+        'Similarity': 'Spectral Similarity'
+    })
+
+    df_combined = pd.merge(
+        df_quant[['row ID', 'row m/z', 'row retention time', 'Kovats Index', 'Kovats Identified Compound']],
+        df_matches_renamed[['row ID', 'Spectral Match Name', 'Spectral Similarity']],
+        on='row ID',
+        how='outer'
+    )
+
+    print(f"✅ Fusão completa para {prefix}")
+    #display(df_combined.head(10))
+
+    # ✅ Salvar Excel
+    os.makedirs("results", exist_ok=True)
+    output_file = os.path.join("results", f"{prefix}_Identificacao_Combinada.xlsx")
+    df_combined.to_excel(output_file, index=False)
+    print(f"✅ Arquivo salvo: {output_file}")
+
+    # ✅ Criar lista para relatório
+    tabela_lista = []
+    for _, row in df_combined.iterrows():
+        tabela_lista.append({
+            'row_mz': f"{row['row m/z']:.2f}" if pd.notnull(row['row m/z']) else "",
+            'row_retention_time': f"{row['row retention time']:.2f}" if pd.notnull(row['row retention time']) else "",
+            'kovats_index': f"{row['Kovats Index']:.2f}" if pd.notnull(row['Kovats Index']) else "",
+            'kovats_identified_compound': row['Kovats Identified Compound'] if pd.notnull(row['Kovats Identified Compound']) else "",
+            'spectral_match_name': row['Spectral Match Name'] if pd.notnull(row['Spectral Match Name']) else "",
+            'spectral_similarity': f"{row['Spectral Similarity']:.2f}" if pd.notnull(row['Spectral Similarity']) else ""
+        })
+
+    # ✅ Gerar relatório Word
+    doc = DocxTemplate(template_path)
+    image_path = os.path.join("images", f"{prefix}_chromatogram.png")
+    
+    if os.path.exists(image_path):
+        cromatograma_img = InlineImage(doc, image_path, width=Cm(12))
+    else:
+        cromatograma_img = None  # ou texto/placeholder
+
+    context = {
+        'amostra': prefix,
+        'data': pd.Timestamp.today().strftime('%d/%m/%Y'),
+        'tabela': tabela_lista,
+        'cromatograma_img': cromatograma_img
+    }
+
+    try:
+        doc.render(context)
+        output_docx = os.path.join("results", f"{prefix}_relatorio.docx")
+        doc.save(output_docx)
+        print(f"✅ Relatório Word salvo: {output_docx}")
+    except Exception as e:
+        print(f"❌ Erro ao gerar relatório Word para {prefix}: {e}")
+
+    return df_combined  # opcional, se quiser o dataframe resultante
+
+
+# 📈 PLOTAR Número de Carbonos vs Retention Time
+fig = px.scatter(df_alkanes, 
+                 x='Number of Carbon Atoms', 
+                 y=rt_column,
+                 title="Curva de Retenção dos Alcanos",
+                 labels={'Number of Carbon Atoms': 'Número de Carbonos', rt_column: 'Retention Time (min)'},
+                # trendline='ols'
+                )  # adiciona linha de tendência opcional
+
+fig.update_traces(mode='markers+lines')
+fig.show()
