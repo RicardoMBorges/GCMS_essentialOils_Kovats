@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import os
+import plotly.express as px
 
 def fit_polynomial_trendline(df, x_col, y_col, degree=4, num_points=100):
     """
@@ -47,6 +48,64 @@ def save_plotly_figure(fig, filename="curva_retencao.html", output_dir="images")
     output_path = os.path.join(output_dir, filename)
     fig.write_html(output_path)
     print(f"✅ Figura salva em: {output_path}")
+
+import os
+import pandas as pd
+
+def carregar_dados(input_dir, file_hidrocarbon_rts, file_ri_library):
+    """
+    Carrega os dados de RTs de alcanos, referência RI e os arquivos de cada amostra no diretório.
+
+    Parâmetros:
+    - input_dir: caminho da pasta com os arquivos de amostras
+    - file_hidrocarbon_rts: caminho do arquivo Hidrocarbon_RTs.csv
+    - file_ri_library: caminho do arquivo RI_Library.csv
+
+    Retorna:
+    - df_hidrocarbon: DataFrame da tabela de RTs dos alcanos
+    - df_ri: DataFrame da tabela de referência RI
+    - sample_prefixes: set com os prefixos das amostras
+    - dfs_quant: dicionário prefix → DataFrame de quantificação
+    - dfs_chrom: dicionário prefix → DataFrame do cromatograma
+    """
+    # ✅ Leitura da tabela de RTs dos alcanos
+    df_hidrocarbon = pd.read_csv(file_hidrocarbon_rts, sep=',|\t', engine='python')
+    print("✅ Tabela de RTs dos alcanos importada.")
+
+    # ✅ Leitura da tabela de referência RI
+    df_ri = pd.read_csv(file_ri_library, sep='\t')
+    print("✅ Tabela de referência RI importada.")
+
+    # 🔍 Procurar todos os arquivos na pasta
+    all_files = os.listdir(input_dir)
+
+    # 🎯 Identificar os prefixos das amostras
+    sample_prefixes = set()
+    for f in all_files:
+        if f.endswith("_quant.csv"):
+            prefix = f.replace("_quant.csv", "")
+            sample_prefixes.add(prefix)
+
+    # 📦 Criar dicionários para armazenar os DataFrames de cada amostra
+    dfs_quant = {}
+    dfs_chrom = {}
+
+    for prefix in sample_prefixes:
+        file_quant = os.path.join(input_dir, f"{prefix}_quant.csv")
+        file_chrom = os.path.join(input_dir, f"{prefix}_Chromatogram.xlsx")
+        
+        if os.path.exists(file_quant) and os.path.exists(file_chrom):
+            df_quant = pd.read_csv(file_quant)
+            df_chrom = pd.read_excel(file_chrom)
+            dfs_quant[prefix] = df_quant
+            dfs_chrom[prefix] = df_chrom
+            print(f"✅ Amostra {prefix} importada.")
+        else:
+            print(f"⚠️ Arquivos faltando para amostra {prefix}. Verifique!")
+
+    return df_hidrocarbon, df_ri, sample_prefixes, dfs_quant, dfs_chrom
+
+
 
 # =========================
 # 🧮 ÍNDICE DE KOVATS
@@ -193,6 +252,51 @@ def parse_msp(file_path):
             spectra[current_name] = peaks
     return spectra
 
+import os
+import pandas as pd
+
+def processar_mgf_amostras(sample_prefixes, input_dir, spectra_lib, results_by_sample, tolerance=0.1, sim_threshold=0.7, output_dir="results"):
+    """
+    Processa os arquivos .mgf de cada amostra, busca matches na biblioteca e salva resultados.
+    
+    Parâmetros:
+    - sample_prefixes: lista ou set de prefixos de amostra
+    - input_dir: caminho da pasta com os arquivos .mgf
+    - spectra_lib: biblioteca de espectros (já parseada)
+    - results_by_sample: dicionário onde armazenar DataFrames de resultados por amostra
+    - tolerance: tolerância de m/z para matching (default=0.1)
+    - sim_threshold: similaridade mínima para aceitar match (default=0.7)
+    - output_dir: diretório para salvar resultados .csv
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    for prefix in sample_prefixes:
+        file_mgf = os.path.join(input_dir, f"{prefix}.mgf")
+        
+        if os.path.exists(file_mgf):
+            print(f"\n🔍 Processando {file_mgf}...")
+
+            # Parseia o arquivo MGF da amostra
+            spectra_exp = parse_mgf(file_mgf)
+            print(f"✅ {len(spectra_exp)} espectros lidos de {file_mgf}")
+
+            # Aplica a busca de melhor match
+            results = find_all_matches(spectra_exp, spectra_lib, tolerance=tolerance, sim_threshold=sim_threshold)
+
+            # Converte para DataFrame
+            df_results = pd.DataFrame(results)
+            results_by_sample[prefix] = df_results
+
+            # Exporta para CSV
+            output_csv = os.path.join(output_dir, f"{prefix}_matches.csv")
+            df_results.to_csv(output_csv, index=False)
+
+            print(f"✅ Resultados salvos em {output_csv}")
+        
+        else:
+            print(f"⚠️ Arquivo .mgf não encontrado para {prefix}")
+
+
 # =========================
 # 🔬 SIMILARIDADE ESPECTRAL
 # =========================
@@ -265,6 +369,70 @@ from docxtpl import InlineImage
 from docx.shared import Cm
 import pandas as pd
 import os
+
+import os
+import pandas as pd
+
+def processar_fusao_amostras(sample_prefixes, dfs_quant_processed, results_by_sample, prefix_ignorado="GT_PadraoHidroc_13-06-2024", output_dir="results"):
+    """
+    Processa a fusão dos DataFrames de quantificação e identificação para cada amostra,
+    ignorando um prefixo especificado, e exporta o resultado em Excel.
+    
+    Parâmetros:
+    - sample_prefixes: lista de nomes das amostras (prefixos)
+    - dfs_quant_processed: dicionário de DataFrames quantificados por amostra
+    - results_by_sample: dicionário de DataFrames de identificações por amostra
+    - prefix_ignorado: nome da amostra padrão a ser ignorada
+    - output_dir: diretório onde salvar os arquivos .xlsx
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    for prefix in sample_prefixes:
+        if prefix == prefix_ignorado:
+            print(f"⚠️ Ignorando amostra padrão {prefix}")
+            continue
+
+        print(f"\n🔍 Processando fusão para {prefix}...")
+
+        df_quant = dfs_quant_processed[prefix].copy()
+        df_matches = results_by_sample[prefix].copy()
+
+        if 'FEATURE_ID' not in df_quant.columns:
+            if 'row ID' in df_quant.columns:
+                df_quant['FEATURE_ID'] = df_quant['row ID'].astype(str)
+            else:
+                raise ValueError(f"❌ Nenhuma coluna 'row ID' ou 'FEATURE_ID' em df_quant para {prefix}")
+        else:
+            df_quant['FEATURE_ID'] = df_quant['FEATURE_ID'].astype(str).str.replace('FEATURE_ID=', '', regex=False)
+
+        df_quant['row ID'] = df_quant['FEATURE_ID'].astype(int)
+        df_matches['row ID'] = df_matches['FEATURE_ID'].astype(int)
+
+        for col in ['Kovats Index', 'Kovats Identified Compound']:
+            if col not in df_quant.columns:
+                df_quant[col] = None
+
+        df_matches_renamed = df_matches.rename(columns={
+            'Best Match Name': 'Spectral Match Name',
+            'Similarity': 'Spectral Similarity'
+        })
+
+        df_combined = pd.merge(
+            df_quant[['row ID', 'row m/z', 'row retention time', 'Kovats Index', 'Kovats Identified Compound']],
+            df_matches_renamed[['row ID', 'Spectral Match Name', 'Spectral Similarity']],
+            on='row ID',
+            how='outer'
+        )
+
+        print(f"✅ Fusão completa para {prefix}")
+
+        output_file = os.path.join(output_dir, f"{prefix}_Identificacao_Combinada.xlsx")
+        df_combined.to_excel(output_file, index=False)
+        print(f"✅ Arquivo salvo: {output_file}")
+
+    print(f"\n🎉 Processamento de todas as amostras concluído.")
+
+
 
 def gerar_relatorio_docx(tabela_resultados, amostra_nome, output_file, template_path="Relatorio_Analitico_Template.docx"):
     """
@@ -391,7 +559,7 @@ def processar_amostra(prefix, dfs_quant_processed, results_by_sample, template_p
 
 
 # 📈 PLOTAR Número de Carbonos vs Retention Time
-fig = px.scatter(df_alkanes, 
+'''fig = px.scatter(df_alkanes, 
                  x='Number of Carbon Atoms', 
                  y=rt_column,
                  title="Curva de Retenção dos Alcanos",
@@ -400,4 +568,4 @@ fig = px.scatter(df_alkanes,
                 )  # adiciona linha de tendência opcional
 
 fig.update_traces(mode='markers+lines')
-fig.show()
+fig.show()'''
