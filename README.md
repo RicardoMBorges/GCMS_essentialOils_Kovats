@@ -50,6 +50,7 @@ Sugestão de estrutura
 ├── README.md                             # Arquivo de descrição do projeto
 
 └── Resources/
+
     ├── Hidrocarbon_RTs.csv/              # Dados obtidos da análise experimental da amostra padrão de hidrocarbonetos
                                        "Name of Hydrocarbon"	"Number of Carbon Atoms"	"Seconds"	"Current RT in minutes"	"Typical RT in sec."	"Typical RT in minutes"
 
