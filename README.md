@@ -9,8 +9,11 @@ Este repositório contém um pipeline de análise de dados GC-MS de óleos essen
 - Visualizações interativas (.html)
 
 ## 🚩 Workflow configurado no MZmine
+1. Converter os dados brutos à .CDF para importação no MZMine
+2. Plotar o Chromatogram (como "Base peak intensity") e exportar em formato .XLSX
+3. Iniciar o processamento seguindo as etapas abaixo.
 
-Abaixo os parâmetros utilizados no arquivo `Essential_Oils_Batch.xml`:
+Abaixo os parâmetros utilizados no arquivo `Essential_Oils_Batch.xml`: ESTES PARÂMETROS NÃO DEVEM SER SEGUIDOS, MAS SIM OTIMIZADOS DE ACORDO COM OS DADOS BRUTOS.
 
 | **Etapa**                   | **Parâmetro**                           | **Valor**                      | **Descrição**                                                   |
 |-----------------------------|----------------------------------------|--------------------------------|-----------------------------------------------------------------|
