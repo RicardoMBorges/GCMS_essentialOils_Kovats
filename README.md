@@ -51,8 +51,7 @@ Sugestão de estrutura
 
 └── Resources/
 
-    ├── Hidrocarbon_RTs.csv/              # Dados obtidos da análise experimental da amostra padrão de hidrocarbonetos
-                                       "Name of Hydrocarbon"	"Number of Carbon Atoms"	"Seconds"	"Current RT in minutes"	"Typical RT in sec."	"Typical RT in minutes"
+    ├── Hidrocarbon_RTs.csv/              # Dados obtidos da análise experimental da amostra padrão de hidrocarbonetos: "Name of Hydrocarbon"	"Number of Carbon Atoms"	"Seconds"	"Current RT in minutes"	"Typical RT in sec."	"Typical RT in minutes"
 
     ├── RI_Library.csv/                   # Banco de dados de Índice de Retenção para KOVATS
     ├── Essential_Oils_Filtered.msp/      # Banco de dados de Espectros de MS (filtrado)
