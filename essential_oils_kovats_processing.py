@@ -230,26 +230,51 @@ def parse_mgf(file_path):
 
 def parse_msp(file_path):
     """
-    Parseia um arquivo .msp e retorna um dicionário {Name: [(mz, intensidade), ...]}.
+    Parser tolerante para arquivos .msp no padrão NIST.
+    Suporta blocos com 'Name:', 'Num Peaks:', e múltiplos formatos de
+espaçamento.
     """
     spectra = {}
+    current_name = None
+    peaks = []
+    in_peak_section = False
+    total_lines = 0
+    total_blocks = 0
+
     with open(file_path, 'r', encoding='utf-8') as f:
-        current_name = None
-        peaks = []
         for line in f:
+            total_lines += 1
             line = line.strip()
-            if line.startswith('Name:'):
+            if not line:
+                continue
+
+            if line.lower().startswith("name:"):
                 if current_name and peaks:
                     spectra[current_name] = peaks
-                current_name = line.split(':',1)[1].strip()
+                    total_blocks += 1
+                current_name = line.split(":", 1)[1].strip()
                 peaks = []
-            elif line and any(c.isdigit() for c in line.split()[0]):
-                parts = line.split()
+                in_peak_section = False
+
+            elif line.lower().startswith("num peaks"):
+                in_peak_section = True
+
+            elif in_peak_section:
+                parts = line.strip().split()
                 if len(parts) >= 2:
-                    mz, intensity = map(float, parts[:2])
-                    peaks.append((mz, intensity))
+                    try:
+                        mz = float(parts[0])
+                        intensity = float(parts[1])
+                        peaks.append((mz, intensity))
+                    except ValueError:
+                        continue
+
         if current_name and peaks:
             spectra[current_name] = peaks
+            total_blocks += 1
+
+    print(f"📄 Linhas processadas: {total_lines}")
+    print(f"✅ Blocos espectrais válidos: {total_blocks}")
     return spectra
 
 import os
