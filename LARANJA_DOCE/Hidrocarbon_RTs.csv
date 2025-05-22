@@ -1,0 +1,20 @@
+Name of Hydrocarbon	Number of Carbon Atoms	Seconds	Current RT in minutes	Typical RT in sec.	Typical RT in minutes
+heptane	7	0			
+octane	8	0		167	2.78
+nonane	9	221.4	3.69	263	4.38
+decane	10	345	5.75	422	7.03
+undecane	11	525.9	8.765	635	10.58
+dodecane	12	750.6	12.51	883	14.72
+n-tridecane	13	998.88	16.648	1143	19.05
+n-tetradecane	14	1250.4	20.84	1401	23.35
+n-pentadecane	15	1495.98	24.933	1651	27.52
+n-hexadecane	16	1731.84	28.864	1891	31.52
+n-heptadecane	17	1957.2	32.62	2120	35.33
+n-octadecane	18	2172.24	36.204	2338	38.97
+n-nonadecane	19	2377.2	39.62	2547	42.45
+icosane	20	2572.8	42.88	2746	45.77
+henicosane	21	2759.4	45.99	2937	48.95
+n-Docosane	22	2937.96	48.966	3120	52.00
+n-tricosane	23	3109.38	51.823	3295	54.92
+n-tetracosane	24	3274.26	54.571	3464	57.73
+n-pentacosane	25	3432.18	57.203	3627	60.45
