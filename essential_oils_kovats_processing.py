@@ -536,7 +536,7 @@ def processar_amostra(prefix, dfs_quant_processed, results_by_sample, template_p
     )
 
     print(f"✅ Fusão completa para {prefix}")
-    #display(df_combined.head(10))
+    display(df_combined.head(10))
 
     # ✅ Salvar Excel
     os.makedirs("results", exist_ok=True)
